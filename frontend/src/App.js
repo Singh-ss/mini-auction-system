@@ -5,6 +5,7 @@ import CreateAuction from './components/CreateAuction';
 import Auth from './components/Auth';
 import AuctionList from './components/AuctionList';
 import EditAuction from './components/EditAuction';
+import AuctionRoom from './components/AuctionRoom';
 import './index.css';
 
 function App() {
@@ -53,6 +54,7 @@ function App() {
               <Route path="/auctions" element={<AuctionList token={token} userId={user?.id} />} />
               <Route path="/auctions/create" element={<CreateAuction token={token} />} />
               <Route path="/auctions/edit/:id" element={<EditAuction token={token} />} />
+              <Route path="/auctions/:id" element={<AuctionRoom token={token} userId={user?.id} />} />
               <Route path="*" element={<AuctionList token={token} userId={user?.id} />} />
             </>
           ) : (

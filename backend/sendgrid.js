@@ -126,5 +126,5 @@ app.post('/auctions', authenticate, async (req, res) => {
 // Sync database and start server
 sequelize.sync({ force: false }).then(() => {
     console.log('Database synced!');
-    server.listen(4000, () => console.log('Server running on port 4000 🚀'));
+    server.listen(4000, () => console.log('Server running on port 4000'));
 });

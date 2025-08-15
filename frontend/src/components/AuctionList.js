@@ -59,22 +59,30 @@ const AuctionList = ({ token, userId }) => {
                             <p><strong>Duration:</strong> {formatDuration(auction.duration)}</p>
                             <p><strong>Created By:</strong> {auction.User?.username || 'Unknown'}</p>
                             <p><strong>Created At:</strong> {new Date(auction.created_at).toLocaleString()}</p>
-                            {auction.user_id === userId && (
-                                <div className="mt-4 flex space-x-2">
-                                    <button
-                                        onClick={() => navigate(`/auctions/edit/${auction.id}`)}
-                                        className="p-2 bg-yellow-500 text-white rounded"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(auction.id, auction.item_name)}
-                                        className="p-2 bg-red-500 text-white rounded"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            )}
+                            <div className="mt-4 flex space-x-2">
+                                <button
+                                    onClick={() => navigate(`/auctions/${auction.id}`)}
+                                    className="p-2 bg-blue-500 text-white rounded"
+                                >
+                                    View Auction
+                                </button>
+                                {auction.user_id === userId && (
+                                    <>
+                                        <button
+                                            onClick={() => navigate(`/auctions/edit/${auction.id}`)}
+                                            className="p-2 bg-yellow-500 text-white rounded"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(auction.id, auction.item_name)}
+                                            className="p-2 bg-red-500 text-white rounded"
+                                        >
+                                            Delete
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
