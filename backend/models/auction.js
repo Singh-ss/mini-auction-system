@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database/connection');
+const User = require('./User');
 
 const Auction = sequelize.define('Auction', {
     id: {
@@ -40,5 +41,7 @@ const Auction = sequelize.define('Auction', {
     createdAt: 'created_at',
     updatedAt: false,
 });
+
+Auction.belongsTo(User, { foreignKey: 'user_id' });
 
 module.exports = Auction;

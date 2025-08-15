@@ -26,4 +26,31 @@ const sendWelcomeEmail = async (to, username) => {
     await sgMail.send(msg);
 };
 
-module.exports = { sendAuctionConfirmationEmail, sendWelcomeEmail };
+const sendAuctionEditConfirmationEmail = async (to, auction) => {
+    const msg = {
+        to,
+        from: senderEmail,
+        subject: 'Auction Updated Successfully',
+        text: `Your auction "${auction.item_name}" has been updated!\nStarting Price: $${auction.starting_price}\nGo Live: ${auction.go_live_time}\nDuration: ${auction.duration}`,
+        html: `<p>Your auction <strong>${auction.item_name}</strong> has been updated!</p><p>Starting Price: $${auction.starting_price}</p><p>Go Live: ${auction.go_live_time}</p><p>Duration: ${auction.duration}</p>`,
+    };
+    await sgMail.send(msg);
+};
+
+const sendAuctionDeleteConfirmationEmail = async (to, item_name) => {
+    const msg = {
+        to,
+        from: senderEmail,
+        subject: 'Auction Deleted Successfully',
+        text: `Your auction "${item_name}" has been deleted.`,
+        html: `<p>Your auction <strong>${item_name}</strong> has been deleted.</p>`,
+    };
+    await sgMail.send(msg);
+};
+
+module.exports = {
+    sendAuctionConfirmationEmail,
+    sendWelcomeEmail,
+    sendAuctionEditConfirmationEmail,
+    sendAuctionDeleteConfirmationEmail
+};

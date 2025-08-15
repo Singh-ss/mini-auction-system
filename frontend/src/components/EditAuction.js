@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import formatDuration from '../utils/formatDuration';
 
-const CreateAuction = ({ token }) => {
+const EditAuction = ({ token }) => {
+    const { id } = useParams();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         item_name: '',
@@ -14,6 +16,35 @@ const CreateAuction = ({ token }) => {
     });
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAuction = async () => {
+            try {
+                const response = await axios.get(`http://localhost:4000/auctions`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const auction = response.data.find((a) => a.id === parseInt(id));
+                if (!auction) {
+                    throw new Error('Auction not found');
+                }
+                setFormData({
+                    item_name: auction.item_name,
+                    description: auction.description || '',
+                    starting_price: auction.starting_price,
+                    bid_increment: auction.bid_increment,
+                    go_live_time: new Date(auction.go_live_time).toISOString().slice(0, 16),
+                    duration: formatDuration(auction.duration),
+                });
+                setLoading(false);
+            } catch (err) {
+                setError(err.response?.data?.error || err.message);
+                setLoading(false);
+            }
+        };
+
+        fetchAuction();
+    }, [id, token]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,19 +56,22 @@ const CreateAuction = ({ token }) => {
         setSuccess(null);
 
         try {
-            await axios.post('http://localhost:4000/auctions', formData, {
+            await axios.put(`http://localhost:4000/auctions/${id}`, formData, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setSuccess('Auction created successfully!');
+            setSuccess('Auction updated successfully!');
             setTimeout(() => navigate('/auctions'), 2000); // Redirect to auctions list
         } catch (err) {
             setError(err.response?.data?.error || err.message);
         }
     };
 
+    if (loading) return <p className="text-center">Loading auction...</p>;
+    if (error) return <p className="text-red-500 text-center">{error}</p>;
+
     return (
         <div className="max-w-lg mx-auto p-4">
-            <h2 className="text-2xl font-bold mb-4">Create Auction</h2>
+            <h2 className="text-2xl font-bold mb-4">Edit Auction</h2>
             {error && <p className="text-red-500">{error}</p>}
             {success && <p className="text-green-500">{success}</p>}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -108,11 +142,11 @@ const CreateAuction = ({ token }) => {
                     />
                 </div>
                 <button type="submit" className="w-full p-2 bg-blue-500 text-white rounded">
-                    Create Auction
+                    Update Auction
                 </button>
             </form>
         </div>
     );
 };
 
-export default CreateAuction;
+export default EditAuction;

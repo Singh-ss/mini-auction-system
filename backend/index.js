@@ -3,8 +3,12 @@ const { createClient } = require('@supabase/supabase-js');
 const sequelize = require('./database/connection');
 const Auction = require('./models/Auction');
 const User = require('./models/User');
-const redis = require('./utils/redis');
-const { sendAuctionConfirmationEmail, sendWelcomeEmail } = require('./utils/sendgrid');
+const {
+    sendAuctionConfirmationEmail,
+    sendWelcomeEmail,
+    sendAuctionEditConfirmationEmail,
+    sendAuctionDeleteConfirmationEmail
+} = require('./utils/sendgrid');
 const http = require('http');
 const initWebSocket = require('./websocket');
 require('dotenv').config();
@@ -85,7 +89,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Create auction (protected route, unchanged from previous)
+// Create auction
 app.post('/auctions', authenticate, async (req, res) => {
     try {
         const { item_name, description, starting_price, bid_increment, go_live_time, duration } = req.body;
@@ -109,20 +113,86 @@ app.post('/auctions', authenticate, async (req, res) => {
             duration,
         });
 
-        // Cache auction metadata in Redis
-        await redis.set(`auction:${auction.id}`, JSON.stringify({
-            id: auction.id,
-            item_name,
-            starting_price,
-            bid_increment,
-            go_live_time,
-            duration,
-        }), 'EX', 60 * 60 * 24); // Cache for 24 hours
-
         // Send confirmation email
         await sendAuctionConfirmationEmail(req.user.email, auction);
 
         res.status(201).json(auction);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Fetch all auctions
+app.get('/auctions', authenticate, async (req, res) => {
+    try {
+        const auctions = await Auction.findAll({
+            attributes: ['id', 'user_id', 'item_name', 'description', 'starting_price', 'bid_increment', 'go_live_time', 'duration', 'created_at'],
+            include: [{ model: User, attributes: ['username'] }],
+        });
+
+        res.json(auctions);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Edit auction
+app.put('/auctions/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { item_name, description, starting_price, bid_increment, go_live_time, duration } = req.body;
+
+        // Validate inputs
+        if (!item_name || !starting_price || !bid_increment || !go_live_time || !duration) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        if (starting_price <= 0 || bid_increment <= 0) {
+            return res.status(400).json({ error: 'Invalid price or increment' });
+        }
+
+        // Find auction and ensure user is the creator
+        const auction = await Auction.findOne({ where: { id, user_id: req.user.id } });
+        if (!auction) {
+            return res.status(403).json({ error: 'Auction not found or you are not the creator' });
+        }
+
+        // Update auction
+        await auction.update({
+            item_name,
+            description,
+            starting_price,
+            bid_increment,
+            go_live_time,
+            duration,
+        });
+
+        // Send edit confirmation email
+        await sendAuctionEditConfirmationEmail(req.user.email, auction);
+
+        res.json(auction);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete auction
+app.delete('/auctions/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find auction and ensure user is the creator
+        const auction = await Auction.findOne({ where: { id, user_id: req.user.id } });
+        if (!auction) {
+            return res.status(403).json({ error: 'Auction not found or you are not the creator' });
+        }
+
+        // Delete auction
+        await auction.destroy();
+
+        // Send delete confirmation email
+        await sendAuctionDeleteConfirmationEmail(req.user.email, auction.item_name);
+
+        res.json({ message: 'Auction deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
