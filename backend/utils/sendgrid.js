@@ -2,11 +2,12 @@ const sgMail = require('@sendgrid/mail');
 require('dotenv').config();
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const senderEmail = 'subhanshusingh3680@gmail.com';
 
 const sendAuctionConfirmationEmail = async (to, auction) => {
     const msg = {
         to,
-        from: 'your-verified-email@example.com', // Replace with your verified SendGrid sender
+        from: senderEmail,
         subject: 'Auction Created Successfully',
         text: `Your auction "${auction.item_name}" has been created!\nStarting Price: $${auction.starting_price}\nGo Live: ${auction.go_live_time}\nDuration: ${auction.duration}`,
         html: `<p>Your auction <strong>${auction.item_name}</strong> has been created!</p><p>Starting Price: $${auction.starting_price}</p><p>Go Live: ${auction.go_live_time}</p><p>Duration: ${auction.duration}</p>`,
@@ -14,4 +15,15 @@ const sendAuctionConfirmationEmail = async (to, auction) => {
     await sgMail.send(msg);
 };
 
-module.exports = { sendAuctionConfirmationEmail };
+const sendWelcomeEmail = async (to, username) => {
+    const msg = {
+        to,
+        from: senderEmail,
+        subject: 'Welcome to Auction App!',
+        text: `Welcome, ${username}!\nYour account has been created successfully. Start creating auctions now!`,
+        html: `<p>Welcome, <strong>${username}</strong>!</p><p>Your account has been created successfully. Start creating auctions now!</p>`,
+    };
+    await sgMail.send(msg);
+};
+
+module.exports = { sendAuctionConfirmationEmail, sendWelcomeEmail };

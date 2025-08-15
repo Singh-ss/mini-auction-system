@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabase';
 import axios from 'axios';
 
-const CreateAuction = () => {
+const CreateAuction = ({ token }) => {
     const [formData, setFormData] = useState({
         item_name: '',
         description: '',
@@ -24,15 +23,12 @@ const CreateAuction = () => {
         setSuccess(null);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Please log in to create an auction');
-
             const response = await axios.post('http://localhost:4000/auctions', formData, {
-                headers: { Authorization: `Bearer ${session.access_token}` },
+                headers: { Authorization: `Bearer ${token}` },
             });
             setSuccess('Auction created successfully!');
         } catch (err) {
-            setError(err.message);
+            setError(err.response?.data?.error || err.message);
         }
     };
 

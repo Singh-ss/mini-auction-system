@@ -8,15 +8,10 @@ const { sendAuctionConfirmationEmail, sendWelcomeEmail } = require('./utils/send
 const http = require('http');
 const initWebSocket = require('./websocket');
 require('dotenv').config();
-const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
 app.use(express.json());
-
-app.use(cors({
-    origin: "*"
-}))
 
 // Initialize WebSocket (placeholder for real-time bidding)
 initWebSocket(server);
@@ -131,5 +126,5 @@ app.post('/auctions', authenticate, async (req, res) => {
 // Sync database and start server
 sequelize.sync({ force: false }).then(() => {
     console.log('Database synced!');
-    server.listen(4000, () => console.log('Server running on port 4000'));
+    server.listen(4000, () => console.log('Server running on port 4000 🚀'));
 });
