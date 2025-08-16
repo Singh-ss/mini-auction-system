@@ -14,6 +14,7 @@ router.post('/:id/bids', authenticate, async (req, res) => {
         const bid = await placeBid(id, req.user.id, bid_amount);
         res.status(201).json(bid);
     } catch (error) {
+        console.log(error)
         res.status(500).json({ error: error.message });
     }
 });

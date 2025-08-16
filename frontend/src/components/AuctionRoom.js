@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import moment from 'moment-timezone';
@@ -7,16 +7,20 @@ const AuctionRoom = ({ token, userId }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [auction, setAuction] = useState(null);
-    const [currentBid, setCurrentBid] = useState(null);
+    // const [currentBid, setCurrentBid] = useState(null);
     const [bidAmount, setBidAmount] = useState('');
     const [error, setError] = useState(null);
-    const [notifications, setNotifications] = useState([]);
+    // const [notifications, setNotifications] = useState([]);
     const [timeLeft, setTimeLeft] = useState(null);
     const [auctionStatus, setAuctionStatus] = useState(null);
     const [loading, setLoading] = useState(true);
+    const fetched = useRef(false);
 
-    // Fetch auction details
+    // Fetch auction details only once
     useEffect(() => {
+        if (fetched.current) return;
+        fetched.current = true;
+
         const fetchAuction = async () => {
             try {
                 const response = await axios.get(`http://localhost:4000/auctions/${id}`, {
@@ -24,7 +28,7 @@ const AuctionRoom = ({ token, userId }) => {
                 });
                 const auctionData = response.data;
                 setAuction(auctionData);
-                setCurrentBid(Number(auctionData.starting_price));
+                // setCurrentBid(Number(auctionData.current_price || auctionData.starting_price));
                 setLoading(false);
             } catch (err) {
                 setError(err.response?.data?.error || err.message);
@@ -44,20 +48,33 @@ const AuctionRoom = ({ token, userId }) => {
         websocket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'new_bid') {
-                setCurrentBid(Number(data.bid_amount));
-            } else if (data.type === 'notification' && data.recipient_id === userId) {
-                setNotifications((prev) => [...prev, data.message]);
+                // setCurrentBid(Number(data.bid_amount));
+                setAuction(prev => ({
+                    ...prev,
+                    current_price: data.bid_amount,
+                    winner_id: data.bidder_username, // Note: Adjust if backend sends user ID instead
+                    bids: [...(prev.bids || []), {
+                        bidder: data.bidder_username,
+                        bidAmount: data.bid_amount,
+                        bidTime: moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss')
+                    }]
+                }));
             } else if (data.type === 'auction_ended') {
-                setNotifications((prev) => [...prev, data.message]);
+                // setNotifications((prev) => [...prev, data.message]);
                 setTimeLeft(0);
+                setAuction(prev => ({ ...prev, is_sold: true }));
+                setAuctionStatus('Ended');
             }
         };
         websocket.onclose = () => {
-            setError('WebSocket connection closed');
+            // setError('WebSocket connection closed');
         };
 
-        // return () => websocket.close();
-    }, [id, userId]); // Dependencies: id, userId
+        return () => {
+            console.log('closing websocket');
+            websocket.close();
+        };
+    }, [id]);
 
     // Countdown timer
     useEffect(() => {
@@ -86,9 +103,8 @@ const AuctionRoom = ({ token, userId }) => {
             }
 
             setTimeLeft(timeDiff > 0 ? timeDiff : 0);
-            setAuctionStatus(status); // You'll need to create this state
+            setAuctionStatus(status);
         };
-
 
         updateCountdown();
         const timer = setInterval(updateCountdown, 1000);
@@ -149,7 +165,7 @@ const AuctionRoom = ({ token, userId }) => {
         setError(null);
         try {
             await axios.post(
-                `http://localhost:4000/auctions/${id}/bids`,
+                `http://localhost:4000/bids/${id}/bids`,
                 { bid_amount: parseFloat(bidAmount) },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -167,19 +183,19 @@ const AuctionRoom = ({ token, userId }) => {
             <h2 className="text-2xl font-bold mb-4">{auction.item_name}</h2>
             <p className="text-gray-600">{auction.description || 'No description'}</p>
             <p><strong>Starting Price:</strong> ₹{auction.starting_price}</p>
-            <p><strong>Current Highest Bid:</strong> ₹{Number(currentBid).toFixed(2)}</p>
+            <p><strong>Current Price:</strong> ₹{Number(auction.current_price || auction.starting_price).toFixed(2)}</p>
             <p><strong>Bid Increment:</strong> ₹{auction.bid_increment}</p>
-            <p><strong>Auction Status:</strong> {auctionStatus}</p>
+            <p><strong>Auction Status:</strong> {auction.is_sold ? 'Sold' : auctionStatus}</p>
             <p><strong>Time Left (IST):</strong> {formatTimeLeft(timeLeft)}</p>
-
             <p><strong>Created By:</strong> {auction.User?.username || 'Unknown'}</p>
-            {timeLeft > 0 && (
+            {auction.winner_id && <p><strong>Winner:</strong> {auction.winner_name}</p>}
+            {timeLeft > 0 && !auction.is_sold && (
                 <form onSubmit={handleBid} className="mt-4 space-y-2">
                     <input
                         type="number"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder={`Enter bid (min ₹${(Number(currentBid) + Number(auction.bid_increment)).toFixed(2)})`}
+                        placeholder={`Enter bid (min ₹${(Number(auction.current_price || auction.starting_price) + Number(auction.bid_increment)).toFixed(2)})`}
                         className="w-full p-2 border rounded"
                         step="0.01"
                         required
@@ -187,13 +203,13 @@ const AuctionRoom = ({ token, userId }) => {
                     <button
                         type="submit"
                         className="w-full p-2 bg-blue-500 text-white rounded"
-                        disabled={timeLeft <= 0}
+                        disabled={timeLeft <= 0 || auction.is_sold}
                     >
                         Place Bid
                     </button>
                 </form>
             )}
-            <div className="mt-4">
+            {/* <div className="mt-4">
                 <h3 className="text-lg font-semibold">Notifications</h3>
                 {notifications.length === 0 ? (
                     <p>No notifications</p>
@@ -202,6 +218,24 @@ const AuctionRoom = ({ token, userId }) => {
                         {notifications.map((msg, index) => (
                             <li key={index} className="text-sm text-gray-700">{msg}</li>
                         ))}
+                    </ul>
+                )}
+            </div> */}
+            <div className="mt-4">
+                <h3 className="text-lg font-semibold">Bids</h3>
+                {auction.bids.length === 0 ? (
+                    <p>No bids yet</p>
+                ) : (
+                    <ul className="list-disc pl-5">
+                        {auction.bids
+                            .slice()
+                            .reverse()
+                            .map((bid, index) => (
+                                <li key={index} className="text-sm text-gray-700">
+                                    ₹{bid.bidAmount} by {bid.bidderName || bid.bidder} at {bid.bidTime}
+                                </li>
+                            ))}
+
                     </ul>
                 )}
             </div>

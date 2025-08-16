@@ -30,7 +30,7 @@ const CreateAuction = ({ token }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setSuccess('Auction created successfully!');
-            setTimeout(() => navigate('/auctions'), 2000);
+            setTimeout(() => navigate('/auctions'), 1000);
         } catch (err) {
             setError(err.response?.data?.error || err.message);
         }
