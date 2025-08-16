@@ -41,7 +41,7 @@ const AuctionRoom = ({ token, userId }) => {
 
     // WebSocket for real-time updates
     useEffect(() => {
-        const websocket = new WebSocket(`process.env.REACT_APP_WS_URL/auctions/${id}`);
+        const websocket = new WebSocket(`${process.env.REACT_APP_WS_URL}/auctions/${id}`);
         websocket.onopen = () => {
             websocket.send(JSON.stringify({ type: 'join', auctionId: id }));
         };
