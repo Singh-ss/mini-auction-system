@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const auctionRoutes = require('./routes/auctions');
 const bidRoutes = require('./routes/bids');
 require('dotenv').config();
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +23,12 @@ app.use('/bids', bidRoutes);
 
 // Initialize WebSocket
 initWebSocket(server);
+
+// setup frontend
+app.use(express.static(path.join(__dirname, "../frontend/build")));
+app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../frontend/build/index.html"))
+});
 
 // Sync database and start server
 sequelize.sync({ force: false }).then(() => {

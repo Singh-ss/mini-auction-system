@@ -1,6 +1,6 @@
 const { WebSocketServer } = require('ws');
 const moment = require('moment-timezone');
-const Auction = require('./models/Auction');
+const Auction = require('./models/auction');
 const { parseDuration } = require('./utils/timeUtils');
 const wsManager = require('./wsManager');
 const User = require('./models/User');

@@ -26,7 +26,7 @@ const CreateAuction = ({ token }) => {
         setSuccess(null);
 
         try {
-            await axios.post('process.env.REACT_APP_API_URL/auctions', formData, {
+            await axios.post(`${process.env.REACT_APP_API_URL}/auctions`, formData, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setSuccess('Auction created successfully!');

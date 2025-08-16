@@ -1,5 +1,5 @@
 const moment = require('moment-timezone');
-const Auction = require('../models/Auction');
+const Auction = require('../models/auction');
 const User = require('../models/User');
 
 const createAuction = async (user, { item_name, description, starting_price, bid_increment, go_live_time, duration }) => {

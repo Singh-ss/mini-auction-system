@@ -1,5 +1,5 @@
 const moment = require('moment-timezone');
-const Auction = require('../models/Auction');
+const Auction = require('../models/auction');
 const User = require('../models/User');
 const redis = require('../utils/redis');
 const { parseDuration } = require('../utils/timeUtils');
