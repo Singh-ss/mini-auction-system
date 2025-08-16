@@ -23,7 +23,7 @@ const AuctionRoom = ({ token, userId }) => {
 
         const fetchAuction = async () => {
             try {
-                const response = await axios.get(`${process.env.REACT_APP_API_URL}/auctions/${id}`, {
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/auctions/${id}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 const auctionData = response.data;
@@ -167,7 +167,7 @@ const AuctionRoom = ({ token, userId }) => {
         setError(null);
         try {
             await axios.post(
-                `${process.env.REACT_APP_API_URL}/bids/${id}/bids`,
+                `${process.env.REACT_APP_API_URL}/api/bids/${id}/bids`,
                 { bid_amount: parseFloat(bidAmount) },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
