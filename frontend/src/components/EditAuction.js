@@ -22,7 +22,7 @@ const EditAuction = ({ token }) => {
     useEffect(() => {
         const fetchAuction = async () => {
             try {
-                const response = await axios.get(`http://localhost:4000/auctions`, {
+                const response = await axios.get(`process.env.REACT_APP_API_URL/auctions`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 const auction = response.data.find((a) => a.id === parseInt(id));
@@ -57,7 +57,7 @@ const EditAuction = ({ token }) => {
         setSuccess(null);
 
         try {
-            await axios.put(`http://localhost:4000/auctions/${id}`, formData, {
+            await axios.put(`process.env.REACT_APP_API_URL/auctions/${id}`, formData, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setSuccess('Auction updated successfully!');

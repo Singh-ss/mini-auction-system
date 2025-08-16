@@ -3,6 +3,7 @@ const moment = require('moment-timezone');
 const Auction = require('./models/Auction');
 const { parseDuration } = require('./utils/timeUtils');
 const wsManager = require('./wsManager');
+const User = require('./models/User');
 
 function initWebSocket(server) {
     const wss = new WebSocketServer({ server });
@@ -90,17 +91,41 @@ function initWebSocket(server) {
             if (now.isSameOrAfter(auction.endTime)) {
                 const dbAuction = await Auction.findOne({ where: { id } });
 
-                // Check latest bids from DB to avoid stale cache
-                const hasBids = dbAuction.bids.length > 0;
-                if (dbAuction && hasBids) {
-                    await dbAuction.update({ is_sold: true });
+                let winner_id = null;
+                let winner_name = null;
+                let topBid = null;
+
+                if (dbAuction && dbAuction.bids.length > 0) {
+                    topBid = dbAuction.bids.reduce((max, bid) =>
+                        bid.bidAmount > max.bidAmount ? bid : max
+                    );
+                    winner_id = topBid.bidder;
+                    const winnerUser = await User.findOne({ where: { id: winner_id } });
+                    winner_name = winnerUser.username;
+
+                    // Update auction in DB
+                    await dbAuction.update({
+                        is_sold: true,
+                        winner_id: winner_id
+                    });
                 }
 
-                await broadcastToAuction(id, {
+                await wsManager.broadcastToAuction(id, {
                     type: 'auction_ended',
                     auctionId: id,
-                    message: `Auction "${auction.item_name}" has ended at ${now.format('YYYY-MM-DD HH:mm:ss')}.`,
+                    message: `Auction "${auction.item_name}" has ended at ${now.format('YYYY-MM-DD HH:mm:ss')}${winner_name ? ` with winner ${winner_name}` : ''}.`,
+                    winner_name,
+                    winner_id
                 });
+
+                // Notify the winner, if any
+                if (winner_id && winner_name) {
+                    await wsManager.broadcastToUser(winner_id, {
+                        type: 'notification',
+                        recipient_id: winner_id,
+                        message: `You won the auction "${auction.item_name}" with a bid of ₹${topBid.bidAmount} at ${now.format('YYYY-MM-DD HH:mm:ss')}.`
+                    });
+                }
 
                 endedIds.push(id);
             }
@@ -115,10 +140,10 @@ function initWebSocket(server) {
         await refreshCache();
 
         // Check every 1 seconds for end times
-        setInterval(checkAuctionEnd, 1000);
+        setInterval(checkAuctionEnd, 100000);
 
         // Refresh cache every 30 seconds to get new auctions
-        setInterval(refreshCache, 30000);
+        setInterval(refreshCache, 300000);
     })();
 
     return { broadcastToAuction, broadcastToUser, parseDuration };

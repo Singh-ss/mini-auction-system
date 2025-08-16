@@ -23,7 +23,7 @@ const AuctionRoom = ({ token, userId }) => {
 
         const fetchAuction = async () => {
             try {
-                const response = await axios.get(`http://localhost:4000/auctions/${id}`, {
+                const response = await axios.get(`process.env.REACT_APP_API_URL/auctions/${id}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 const auctionData = response.data;
@@ -41,7 +41,7 @@ const AuctionRoom = ({ token, userId }) => {
 
     // WebSocket for real-time updates
     useEffect(() => {
-        const websocket = new WebSocket(`ws://localhost:4000/auctions/${id}`);
+        const websocket = new WebSocket(`process.env.REACT_APP_WS_URL/auctions/${id}`);
         websocket.onopen = () => {
             websocket.send(JSON.stringify({ type: 'join', auctionId: id }));
         };
@@ -52,9 +52,11 @@ const AuctionRoom = ({ token, userId }) => {
                 setAuction(prev => ({
                     ...prev,
                     current_price: data.bid_amount,
-                    winner_id: data.bidder_username, // Note: Adjust if backend sends user ID instead
+                    winner_id: data.bidder_id,
+                    winner_name: data.bidder_username,
                     bids: [...(prev.bids || []), {
-                        bidder: data.bidder_username,
+                        bidder: data.bidder_id,
+                        bidderName: data.bidder_username,
                         bidAmount: data.bid_amount,
                         bidTime: moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss')
                     }]
@@ -165,7 +167,7 @@ const AuctionRoom = ({ token, userId }) => {
         setError(null);
         try {
             await axios.post(
-                `http://localhost:4000/bids/${id}/bids`,
+                `process.env.REACT_APP_API_URL/bids/${id}/bids`,
                 { bid_amount: parseFloat(bidAmount) },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

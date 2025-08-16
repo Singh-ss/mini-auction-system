@@ -52,6 +52,7 @@ const placeBid = async (auctionId, userId, bid_amount) => {
         auctionId,
         bid_amount,
         bidder_username: bidder.username,
+        bidder_id: userId,
     });
 
     await wsManager.broadcastToUser(auction.user_id, {

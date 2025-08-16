@@ -12,7 +12,7 @@ const AuctionList = ({ token, userId }) => {
     useEffect(() => {
         const fetchAuctions = async () => {
             try {
-                const response = await axios.get('http://localhost:4000/auctions', {
+                const response = await axios.get('process.env.REACT_APP_API_URL/auctions', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setAuctions(response.data);
@@ -29,7 +29,7 @@ const AuctionList = ({ token, userId }) => {
     const handleDelete = async (auctionId, item_name) => {
         if (window.confirm(`Are you sure you want to delete "${item_name}"?`)) {
             try {
-                await axios.delete(`http://localhost:4000/auctions/${auctionId}`, {
+                await axios.delete(`process.env.REACT_APP_API_URL/auctions/${auctionId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setAuctions(auctions.filter((auction) => auction.id !== auctionId));

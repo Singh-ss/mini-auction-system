@@ -12,7 +12,7 @@ const createAuction = async (user, { item_name, description, starting_price, bid
         bid_increment,
         go_live_time: goLiveTimeUTC,
         duration,
-        current_price: 0,
+        current_price: starting_price,
         bids: [],
         winner_id: null,
         is_sold: false,

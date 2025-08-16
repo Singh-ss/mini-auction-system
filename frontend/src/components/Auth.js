@@ -23,7 +23,7 @@ const Auth = ({ setUser, setToken }) => {
 
         try {
             if (isSignUp) {
-                const response = await axios.post('http://localhost:4000/signup', formData);
+                const response = await axios.post('process.env.REACT_APP_API_URL/signup', formData);
                 setSuccess('Sign-up successful! Please check your email.');
             } else {
                 const { data: { user, session }, error } = await supabase.auth.signInWithPassword({
