@@ -140,7 +140,7 @@ function initWebSocket(server) {
         await refreshCache();
 
         // Check every 1 seconds for end times
-        setInterval(checkAuctionEnd, 100000);
+        setInterval(checkAuctionEnd, 10000);
 
         // Refresh cache every 30 seconds to get new auctions
         setInterval(refreshCache, 300000);
