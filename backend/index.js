@@ -17,9 +17,9 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // Routes
-app.use('/auth', authRoutes);
-app.use('/auctions', auctionRoutes);
-app.use('/bids', bidRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/auctions', auctionRoutes);
+app.use('/api/bids', bidRoutes);
 
 // Initialize WebSocket
 initWebSocket(server);
