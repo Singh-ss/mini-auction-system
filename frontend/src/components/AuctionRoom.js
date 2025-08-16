@@ -19,13 +19,10 @@ const AuctionRoom = ({ token, userId }) => {
     useEffect(() => {
         const fetchAuction = async () => {
             try {
-                const response = await axios.get('http://localhost:4000/auctions', {
+                const response = await axios.get(`http://localhost:4000/auctions/${id}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                const auctionData = response.data.find((a) => a.id === parseInt(id));
-                if (!auctionData) {
-                    throw new Error('Auction not found');
-                }
+                const auctionData = response.data;
                 setAuction(auctionData);
                 setCurrentBid(Number(auctionData.starting_price));
                 setLoading(false);
