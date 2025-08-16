@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import moment from 'moment-timezone';
 
 const AuctionRoom = ({ token, userId }) => {
     const { id } = useParams();
@@ -11,6 +12,7 @@ const AuctionRoom = ({ token, userId }) => {
     const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [timeLeft, setTimeLeft] = useState(null);
+    const [auctionStatus, setAuctionStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Fetch auction details
@@ -34,7 +36,7 @@ const AuctionRoom = ({ token, userId }) => {
         };
 
         fetchAuction();
-    }, [id, token, userId]); // Dependencies: id, token, userId
+    }, [id, token, userId]);
 
     // WebSocket for real-time updates
     useEffect(() => {
@@ -65,18 +67,36 @@ const AuctionRoom = ({ token, userId }) => {
         if (!auction) return;
 
         const updateCountdown = () => {
-            console.log('auction.go_live_time', auction.go_live_time)
-            console.log('parseDuration(auction.duration)', parseDuration(auction.duration))
-            const endTime = new Date(new Date(auction.go_live_time).getTime() + parseDuration(auction.duration));
-            const now = new Date();
-            const timeDiff = endTime - now;
+            const goLiveTime = moment(auction.go_live_time).tz('Asia/Kolkata');
+            const endTime = moment(goLiveTime).add(parseDuration(auction.duration));
+            const now = moment().tz('Asia/Kolkata');
+
+            let timeDiff;
+            let status;
+
+            if (now.isBefore(goLiveTime)) {
+                // Auction hasn't started yet
+                timeDiff = goLiveTime.diff(now);
+                status = "Not Started";
+            } else if (now.isBetween(goLiveTime, endTime)) {
+                // Auction is running
+                timeDiff = endTime.diff(now);
+                status = "Running";
+            } else {
+                // Auction ended
+                timeDiff = 0;
+                status = "Ended";
+            }
+
             setTimeLeft(timeDiff > 0 ? timeDiff : 0);
+            setAuctionStatus(status); // You'll need to create this state
         };
 
-        updateCountdown(); // Initial call
+
+        updateCountdown();
         const timer = setInterval(updateCountdown, 1000);
         return () => clearInterval(timer);
-    }, [auction]); // Dependency: auction
+    }, [auction]);
 
     const parseDuration = (durationObj) => {
         if (!durationObj || typeof durationObj !== 'object') return 0;
@@ -90,8 +110,6 @@ const AuctionRoom = ({ token, userId }) => {
             seconds = 0
         } = durationObj;
 
-        // Convert each unit to milliseconds
-        // Approximation: 1 year = 365.25 days, 1 month = 30.44 days
         const msFromYears = years * 365.25 * 24 * 60 * 60 * 1000;
         const msFromMonths = months * 30.44 * 24 * 60 * 60 * 1000;
         const msFromDays = days * 24 * 60 * 60 * 1000;
@@ -111,7 +129,6 @@ const AuctionRoom = ({ token, userId }) => {
 
     const formatTimeLeft = (ms) => {
         if (ms <= 0) return 'Auction Ended';
-
         const seconds = Math.floor((ms / 1000) % 60);
         const minutes = Math.floor((ms / (1000 * 60)) % 60);
         const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
@@ -129,7 +146,6 @@ const AuctionRoom = ({ token, userId }) => {
 
         return parts.join(' ');
     };
-
 
     const handleBid = async (e) => {
         e.preventDefault();
@@ -153,10 +169,12 @@ const AuctionRoom = ({ token, userId }) => {
         <div className="max-w-lg mx-auto p-4">
             <h2 className="text-2xl font-bold mb-4">{auction.item_name}</h2>
             <p className="text-gray-600">{auction.description || 'No description'}</p>
-            <p><strong>Starting Price:</strong> ${auction.starting_price}</p>
-            <p><strong>Current Highest Bid:</strong> ${Number(currentBid).toFixed(2)}</p>
-            <p><strong>Bid Increment:</strong> ${auction.bid_increment}</p>
-            <p><strong>Time Left:</strong> {formatTimeLeft(timeLeft)}</p>
+            <p><strong>Starting Price:</strong> ₹{auction.starting_price}</p>
+            <p><strong>Current Highest Bid:</strong> ₹{Number(currentBid).toFixed(2)}</p>
+            <p><strong>Bid Increment:</strong> ₹{auction.bid_increment}</p>
+            <p><strong>Auction Status:</strong> {auctionStatus}</p>
+            <p><strong>Time Left (IST):</strong> {formatTimeLeft(timeLeft)}</p>
+
             <p><strong>Created By:</strong> {auction.User?.username || 'Unknown'}</p>
             {timeLeft > 0 && (
                 <form onSubmit={handleBid} className="mt-4 space-y-2">
@@ -164,7 +182,7 @@ const AuctionRoom = ({ token, userId }) => {
                         type="number"
                         value={bidAmount}
                         onChange={(e) => setBidAmount(e.target.value)}
-                        placeholder={`Enter bid (min $${(Number(currentBid) + Number(auction.bid_increment)).toFixed(2)})`}
+                        placeholder={`Enter bid (min ₹${(Number(currentBid) + Number(auction.bid_increment)).toFixed(2)})`}
                         className="w-full p-2 border rounded"
                         step="0.01"
                         required

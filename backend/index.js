@@ -13,6 +13,7 @@ const {
 } = require('./utils/sendgrid');
 const http = require('http');
 const initWebSocket = require('./websocket');
+const moment = require('moment-timezone');
 require('dotenv').config();
 const cors = require("cors");
 
@@ -99,18 +100,27 @@ app.post('/auctions', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Invalid price or increment' });
         }
 
+        // Convert go_live_time from IST to UTC for storage
+        const goLiveTimeUTC = moment.tz(go_live_time, 'Asia/Kolkata').toDate();
+
         const auction = await Auction.create({
             user_id: req.user.id,
             item_name,
             description,
             starting_price,
             bid_increment,
-            go_live_time,
+            go_live_time: goLiveTimeUTC,
             duration,
         });
 
-        await sendAuctionConfirmationEmail(req.user.email, auction);
-        res.status(201).json(auction);
+        // Convert go_live_time back to IST for email
+        const auctionIST = {
+            ...auction.dataValues,
+            go_live_time: moment(auction.go_live_time).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+        };
+
+        await sendAuctionConfirmationEmail(req.user.email, auctionIST);
+        res.status(201).json(auctionIST);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -124,11 +134,57 @@ app.get('/auctions', authenticate, async (req, res) => {
             include: [{ model: User, attributes: ['username'] }],
         });
 
-        res.json(auctions);
+        // Convert timestamps to IST
+        const auctionsIST = auctions.map(auction => ({
+            ...auction.dataValues,
+            go_live_time: moment(auction.go_live_time).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+            created_at: moment(auction.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+        }));
+
+        res.json(auctionsIST);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
+// Fetch a single auction
+app.get('/auctions/:id', authenticate, async (req, res) => {
+    try {
+        const auctionId = req.params.id;
+
+        const auction = await Auction.findOne({
+            where: { id: auctionId },
+            attributes: [
+                'id',
+                'user_id',
+                'item_name',
+                'description',
+                'starting_price',
+                'bid_increment',
+                'go_live_time',
+                'duration',
+                'created_at'
+            ],
+            include: [{ model: User, attributes: ['username'] }],
+        });
+
+        if (!auction) {
+            return res.status(404).json({ error: 'Auction not found' });
+        }
+
+        // Convert timestamps to IST
+        const auctionIST = {
+            ...auction.dataValues,
+            go_live_time: moment(auction.go_live_time).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+            created_at: moment(auction.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+        };
+
+        res.json(auctionIST);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Edit auction
 app.put('/auctions/:id', authenticate, async (req, res) => {
@@ -148,17 +204,26 @@ app.put('/auctions/:id', authenticate, async (req, res) => {
             return res.status(403).json({ error: 'Auction not found or you are not the creator' });
         }
 
+        // Convert go_live_time from IST to UTC
+        const goLiveTimeUTC = moment.tz(go_live_time, 'Asia/Kolkata').toDate();
+
         await auction.update({
             item_name,
             description,
             starting_price,
             bid_increment,
-            go_live_time,
+            go_live_time: goLiveTimeUTC,
             duration,
         });
 
-        await sendAuctionEditConfirmationEmail(req.user.email, auction);
-        res.json(auction);
+        // Convert go_live_time back to IST for email
+        const auctionIST = {
+            ...auction.dataValues,
+            go_live_time: moment(auction.go_live_time).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+        };
+
+        await sendAuctionEditConfirmationEmail(req.user.email, auctionIST);
+        res.json(auctionIST);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -186,7 +251,8 @@ app.delete('/auctions/:id', authenticate, async (req, res) => {
 app.post('/auctions/:id/bids', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { bid_amount } = req.body;
+        let { bid_amount } = req.body;
+        bid_amount = Number(bid_amount)
 
         if (!bid_amount || bid_amount <= 0) {
             return res.status(400).json({ error: 'Invalid bid amount' });
@@ -198,21 +264,22 @@ app.post('/auctions/:id/bids', authenticate, async (req, res) => {
             return res.status(404).json({ error: 'Auction not found' });
         }
 
-        // Check if auction is active
-        const now = new Date();
-        const endTime = new Date(new Date(auction.go_live_time).getTime() + parseDuration(auction.duration));
-        if (now < new Date(auction.go_live_time) || now > endTime) {
+        // Check if auction is active (in IST)
+        const now = moment().tz('Asia/Kolkata');
+        const goLiveTime = moment(auction.go_live_time).tz('Asia/Kolkata');
+        const endTime = moment(goLiveTime).add(parseDuration(auction.duration));
+        if (now < goLiveTime || now > endTime) {
             return res.status(400).json({ error: 'Auction is not active' });
         }
 
         // Get current highest bid from Redis
         const currentBid = await redis.get(`auction:${id}:highest_bid`);
-        const highestBid = currentBid ? parseFloat(currentBid) : auction.starting_price;
+        const highestBid = currentBid ? Number(currentBid) : Number(auction.starting_price);
         const highestBidderId = await redis.get(`auction:${id}:highest_bidder`);
 
         // Validate bid
-        if (bid_amount < highestBid + auction.bid_increment) {
-            return res.status(400).json({ error: `Bid must be at least $${(highestBid + auction.bid_increment).toFixed(2)}` });
+        if (bid_amount < highestBid + Number(auction.bid_increment)) {
+            return res.status(400).json({ error: `Bid must be at least ₹${(Number(highestBid) + Number(auction.bid_increment)).toFixed(2)}` });
         }
 
         // Save bid to Supabase
@@ -244,7 +311,7 @@ app.post('/auctions/:id/bids', authenticate, async (req, res) => {
         await broadcastToAuction(id.toString(), {
             type: 'notification',
             recipient_id: auction.user_id,
-            message: `New bid of $${bid_amount} on your auction "${auction.item_name}" by ${bidder.username}`,
+            message: `New bid of $${bid_amount} on your auction "${auction.item_name}" by ${bidder.username} at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
         });
 
         // To previous bidder (if outbid)
@@ -252,19 +319,25 @@ app.post('/auctions/:id/bids', authenticate, async (req, res) => {
             await broadcastToAuction(id.toString(), {
                 type: 'notification',
                 recipient_id: highestBidderId,
-                message: `You have been outbid on "${auction.item_name}". New highest bid: $${bid_amount}`,
+                message: `You have been outbid on "${auction.item_name}". New highest bid: $${bid_amount} at ${now.format('YYYY-MM-DD HH:mm:ss')}`,
             });
         }
 
-        res.status(201).json(bid);
+        // Convert bid created_at to IST
+        const bidIST = {
+            ...bid.dataValues,
+            created_at: moment(bid.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'),
+        };
+
+        res.status(201).json(bidIST);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Parse duration (duplicate from websocket.js to avoid circular dependency)
+// Parse duration (object-based)
 const parseDuration = (durationObj) => {
-    if (!durationObj || typeof durationObj !== "object") return 0;
+    if (!durationObj || typeof durationObj !== 'object') return 0;
 
     const {
         years = 0,

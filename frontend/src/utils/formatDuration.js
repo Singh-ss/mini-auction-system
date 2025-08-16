@@ -8,5 +8,5 @@ module.exports = function formatDuration(duration) {
     if (duration.minutes) parts.push(`${duration.minutes} minute${duration.minutes > 1 ? 's' : ''}`);
     if (duration.seconds) parts.push(`${duration.seconds} second${duration.seconds > 1 ? 's' : ''}`);
 
-    return parts.join(', ');
+    return parts.join(' ');
 }

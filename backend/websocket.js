@@ -1,16 +1,18 @@
 const { WebSocketServer } = require('ws');
 const redis = require('./utils/redis');
+const moment = require('moment-timezone');
+const Auction = require('./models/Auction');
 
 function initWebSocket(server) {
     const wss = new WebSocketServer({ server });
 
     wss.on('connection', (ws, req) => {
-        const auctionId = req.url.split('/').pop(); // Extract auctionId from URL (e.g., /auctions/1)
+        const auctionId = req.url.split('/').pop();
 
         ws.on('message', async (message) => {
             const data = JSON.parse(message);
             if (data.type === 'join') {
-                ws.auctionId = auctionId; // Store auctionId on the socket
+                ws.auctionId = auctionId;
             }
         });
 
@@ -19,7 +21,6 @@ function initWebSocket(server) {
         });
     });
 
-    // Function to broadcast updates to all clients in an auction room
     const broadcastToAuction = async (auctionId, message) => {
         wss.clients.forEach((client) => {
             if (client.readyState === client.OPEN && client.auctionId === auctionId) {
@@ -28,21 +29,8 @@ function initWebSocket(server) {
         });
     };
 
-    // Function to check and broadcast auction end
-    const checkAuctionEnd = async (auction) => {
-        const endTime = new Date(new Date(auction.go_live_time).getTime() + parseDuration(auction.duration));
-        if (new Date() >= endTime) {
-            await broadcastToAuction(auction.id.toString(), {
-                type: 'auction_ended',
-                auctionId: auction.id,
-                message: `Auction "${auction.item_name}" has ended.`,
-            });
-        }
-    };
-
-    // Parse duration (e.g., "1 hour" to milliseconds)
     const parseDuration = (durationObj) => {
-        if (!durationObj || typeof durationObj !== "object") return 0;
+        if (!durationObj || typeof durationObj !== 'object') return 0;
 
         const {
             years = 0,
@@ -53,8 +41,6 @@ function initWebSocket(server) {
             seconds = 0
         } = durationObj;
 
-        // Convert each unit to milliseconds
-        // Approximation: 1 year = 365.25 days, 1 month = 30.44 days
         const msFromYears = years * 365.25 * 24 * 60 * 60 * 1000;
         const msFromMonths = months * 30.44 * 24 * 60 * 60 * 1000;
         const msFromDays = days * 24 * 60 * 60 * 1000;
@@ -72,13 +58,66 @@ function initWebSocket(server) {
         );
     };
 
-    // Periodically check active auctions
-    setInterval(async () => {
-        const auctions = await require('./models/Auction').findAll();
+    const cache = {
+        auctions: new Map(), // key: auctionId, value: { endTime, item_name }
+        lastRefresh: 0
+    };
+
+    const refreshCache = async () => {
+        console.log('auction refresh')
+        const auctions = await Auction.findAll();
+        const now = moment().tz('Asia/Kolkata');
+
+        cache.auctions.clear();
+
         for (const auction of auctions) {
-            await checkAuctionEnd(auction);
+            const goLiveTime = moment(auction.go_live_time).tz('Asia/Kolkata');
+            const endTime = moment(goLiveTime).add(parseDuration(auction.duration));
+
+            // Only cache active auctions
+            if (now.isBefore(endTime)) {
+                cache.auctions.set(auction.id.toString(), {
+                    endTime,
+                    item_name: auction.item_name
+                });
+            }
         }
-    }, 1000000); // Check every second
+
+        cache.lastRefresh = Date.now();
+    };
+
+    const checkAuctionEnd = async () => {
+        console.log('auction check')
+        const now = moment().tz('Asia/Kolkata');
+        const endedIds = [];
+
+        for (const [id, auction] of cache.auctions.entries()) {
+            if (now.isSameOrAfter(auction.endTime)) {
+                await broadcastToAuction(id, {
+                    type: 'auction_ended',
+                    auctionId: id,
+                    message: `Auction "${auction.item_name}" has ended at ${now.format('YYYY-MM-DD HH:mm:ss')}.`,
+                });
+                endedIds.push(id);
+            }
+        }
+
+        // Remove ended auctions from cache so we don’t check them again
+        for (const id of endedIds) {
+            cache.auctions.delete(id);
+        }
+    };
+
+    // Initial load
+    (async () => {
+        await refreshCache();
+
+        // Check every 100 second for end times
+        setInterval(checkAuctionEnd, 100000);
+
+        // Refresh cache every 300 seconds to get new auctions
+        setInterval(refreshCache, 300000);
+    })();
 
     return { broadcastToAuction, parseDuration };
 }

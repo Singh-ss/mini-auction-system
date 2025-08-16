@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import moment from 'moment-timezone';
 
 const CreateAuction = ({ token }) => {
     const navigate = useNavigate();
@@ -9,7 +10,7 @@ const CreateAuction = ({ token }) => {
         description: '',
         starting_price: '',
         bid_increment: '',
-        go_live_time: '',
+        go_live_time: moment().tz('Asia/Kolkata').format('YYYY-MM-DDTHH:mm'),
         duration: '',
     });
     const [error, setError] = useState(null);
@@ -29,7 +30,7 @@ const CreateAuction = ({ token }) => {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setSuccess('Auction created successfully!');
-            setTimeout(() => navigate('/auctions'), 2000); // Redirect to auctions list
+            setTimeout(() => navigate('/auctions'), 2000);
         } catch (err) {
             setError(err.response?.data?.error || err.message);
         }
@@ -86,7 +87,7 @@ const CreateAuction = ({ token }) => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium">Go Live Time</label>
+                    <label className="block text-sm font-medium">Go Live Time (IST)</label>
                     <input
                         type="datetime-local"
                         name="go_live_time"

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import formatDuration from '../utils/formatDuration';
+import moment from 'moment-timezone';
 
 const AuctionList = ({ token, userId }) => {
     const navigate = useNavigate();
@@ -53,12 +53,12 @@ const AuctionList = ({ token, userId }) => {
                         <div key={auction.id} className="border p-4 rounded shadow">
                             <h3 className="text-xl font-semibold">{auction.item_name}</h3>
                             <p className="text-gray-600">{auction.description || 'No description'}</p>
-                            <p><strong>Starting Price:</strong> ${auction.starting_price}</p>
-                            <p><strong>Bid Increment:</strong> ${auction.bid_increment}</p>
-                            <p><strong>Go Live:</strong> {new Date(auction.go_live_time).toLocaleString()}</p>
-                            <p><strong>Duration:</strong> {formatDuration(auction.duration)}</p>
+                            <p><strong>Starting Price:</strong> ₹{auction.starting_price}</p>
+                            <p><strong>Bid Increment:</strong> ₹{auction.bid_increment}</p>
+                            <p><strong>Go Live (IST):</strong> {moment(auction.go_live_time).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss')}</p>
+                            <p><strong>Duration:</strong> {auction.duration.hours} hour(s)</p>
                             <p><strong>Created By:</strong> {auction.User?.username || 'Unknown'}</p>
-                            <p><strong>Created At:</strong> {new Date(auction.created_at).toLocaleString()}</p>
+                            <p><strong>Created At (IST):</strong> {moment(auction.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss')}</p>
                             <div className="mt-4 flex space-x-2">
                                 <button
                                     onClick={() => navigate(`/auctions/${auction.id}`)}
