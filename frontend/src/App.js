@@ -26,7 +26,7 @@ function App() {
   useEffect(() => {
     if (!user) return;
 
-    const websocket = new WebSocket('process.env.REACT_APP_WS_URL/notifications');
+    const websocket = new WebSocket(`process.env.REACT_APP_WS_URL/notifications`);
     websocket.onopen = () => {
       websocket.send(JSON.stringify({ type: 'join', userId: user.id }));
     };
